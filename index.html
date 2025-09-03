@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo Numérico (100-200)</title>
+    
+    <!-- 
+        NOTA PARA USO SIN INTERNET:
+        Para que la exportación a PDF funcione sin conexión, debes descargar las siguientes librerías
+        y guardarlas en la misma carpeta que este archivo HTML.
+
+        1. jspdf.umd.min.js (desde https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js)
+        2. html2canvas.min.js (desde https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)
+    -->
+    <script src="./jspdf.umd.min.js"></script>
+    <script src="./html2canvas.min.js"></script>
+
+    <!-- La fuente de Google Fonts ha sido removida para asegurar el funcionamiento offline -->
+
+    <style>
+        /* Estilos generales con nueva fuente y colores */
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f9ff; /* Azul cielo muy claro */
+            color: #444;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h3, button {
+            /* Se añade Comic Sans MS y sans-serif como alternativas a la fuente especial */
+            font-family: 'Luckiest Guy', 'Comic Sans MS', cursive, sans-serif;
+            letter-spacing: 2px;
+            color: #2c3e50; /* Azul oscuro */
+        }
+
+        /* --- DISEÑO VERTICAL RESTAURADO --- */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center; /* Centra los paneles */
+        }
+
+        #contenedor-cartones {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 0;
+            width: 100%;
+        }
+        /* --- FIN DE LA RESTAURACIÓN DEL DISEÑO --- */
+
+
+        .panel {
+            text-align: center;
+            padding: 20px 30px;
+            background-color: #ffffff;
+            border-radius: 20px;
+            border: 5px solid #ffcc00; /* Borde amarillo brillante */
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 800px;
+            box-sizing: border-box;
+            position: relative; /* Necesario para posicionar el botón de reinicio */
+        }
+        
+        .panel h1 {
+            font-size: 3em;
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #e74c3c; /* Rojo vibrante */
+            /* --- CAMBIO: Sombra amarilla a azul pastel --- */
+            text-shadow: 3px 3px 0 #fff, 6px 6px 0 #a0c4ff;
+        }
+
+        .panel p {
+            font-size: 1.1em;
+            font-weight: 500; /* Fuente más gruesa */
+            color: #555;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        label {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #3498db; /* Azul */
+        }
+
+        input[type="number"] {
+            width: 90px;
+            padding: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border: 3px solid #bdc3c7;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.3em;
+            letter-spacing: 1px;
+            color: #fff;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 5px;
+            border-bottom: 5px solid rgba(0,0,0,0.2);
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            border-bottom-width: 7px;
+        }
+        button:active {
+            transform: translateY(2px);
+            border-bottom-width: 3px;
+        }
+
+        /* --- ESTILOS MEJORADOS DEL SORTEADOR --- */
+        #sorteador-panel {
+            border-color: #3498db; /* Borde azul */
+        }
+        #sorteador-panel h1 { 
+            color: #3498db; 
+            text-shadow: 3px 3px 0 #fff, 6px 6px 0 #a0c4ff; 
+            margin-top: 20px; /* **CORRECCIÓN AQUÍ**: Añade espacio arriba para no chocar con el botón */
+        }
+
+        .display-sorteo {
+            width: 280px;
+            height: 180px;
+            margin: 20px auto;
+            border: 8px solid #2c3e50;
+            border-radius: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5em;
+            background: linear-gradient(145deg, #ffffff, #e6e6e6);
+            color: #e74c3c;
+            overflow: hidden;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+        }
+        
+        .display-sorteo .valor {
+            transition: opacity 0.1s ease-out;
+        }
+
+        #sortearBtn { background-color: #3498db; /* Azul */ }
+        
+        #reiniciarSorteoBtn { 
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: #e74c3c; /* Rojo de advertencia */
+            padding: 8px 18px; /* Aumentamos el espacio horizontal */
+            font-size: 1em; /* Más pequeño */
+            border-bottom-width: 4px;
+            white-space: nowrap; /* Evita que el texto se parta en dos líneas */
+        }
+        #reiniciarSorteoBtn:hover { border-bottom-width: 6px; }
+        #reiniciarSorteoBtn:active { border-bottom-width: 2px; }
+
+        
+        .historial-sorteo h3 { font-size: 1.8em; color: #f39c12; }
+
+        #numeros-sorteados {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            justify-content: center; list-style: none; padding: 10px;
+            max-height: 300px; /* Altura máxima */
+            overflow-y: auto; /* Scroll si se necesita */
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        #numeros-sorteados li {
+            border-radius: 10px;
+            width: 120px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8em;
+            color: #fff;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex-shrink: 0; /* Evita que los items se encojan */
+        }
+        /* Colores por letra en el historial */
+        li[data-letra="B"] { background-color: #e74c3c; } /* Rojo */
+        li[data-letra="I"] { background-color: #3498db; } /* Azul */
+        li[data-letra="N"] { background-color: #2ecc71; } /* Verde */
+        li[data-letra="G"] { background-color: #f1c40f; } /* Amarillo */
+        li[data-letra="O"] { background-color: #9b59b6; } /* Morado */
+
+        /* --- ESTILOS MEJORADOS DEL GENERADOR --- */
+        #generarBtn { background-color: #2ecc71; } /* Verde */
+        #pdfBtn { background-color: #9b59b6; } /* Morado */
+        
+        .bingo-card {
+            border: 3px solid #333; background-color: #fff;
+            padding: 5px; width: 380px; margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 2px solid #ccc; text-align: center;
+             vertical-align: middle; width: 20%; }
+
+        th {
+            height: 60px; 
+            font-size: 3em; color: #fff; text-shadow: 2px 2px 2px rgba(0,0,0,0.2);
+        }
+        
+        /* Colores por letra en el cartón */
+        th:nth-child(1) { background-color: #e74c3c; } /* B */
+        th:nth-child(2) { background-color: #3498db; } /* I */
+        th:nth-child(3) { background-color: #2ecc71; } /* N */
+        th:nth-child(4) { background-color: #f1c40f; } /* G */
+        th:nth-child(5) { background-color: #9b59b6; } /* O */
+
+        td {
+            height: 60px; font-size: 2.2em; font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="sorteador-panel" class="panel">
+             <button id="reiniciarSorteoBtn">🔄 Jugar otra vez</button>
+            <h1>SORTEADOR DE BINGO</h1>
+            <div id="display-sorteo" class="display-sorteo">
+                <span class="valor">-</span>
+            </div>
+            <button id="sortearBtn">▶️ ¡Sortear!</button>
+            <div class="historial-sorteo">
+                <h3>SORTEADOS</h3>
+                <ul id="numeros-sorteados"></ul>
+            </div>
+        </div>
+        <div class="panel">
+            <h1>Crea tus Cartones</h1>
+            <p>¿Cuántos cartones de bingo necesitas para jugar?</p>
+            <div class="input-group">
+                <label for="cantidad">Cantidad:</label>
+                <input type="number" id="cantidad" value="4" min="1" max="100">
+            </div>
+            <button id="generarBtn">¡Crear cartones!</button>
+            <button id="pdfBtn" style="display: none;">Descargar</button>
+        </div>
+        <div id="contenedor-cartones"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const rangos = {
+                'B': { min: 100, max: 120, cantidad: 5 },
+                'I': { min: 121, max: 140, cantidad: 5 },
+                'N': { min: 141, max: 160, cantidad: 5 },
+                'G': { min: 161, max: 180, cantidad: 5 },
+                'O': { min: 181, max: 200, cantidad: 5 }
+            };
+
+            // --- LÓGICA DEL SORTEADOR (TÓMBOLA) ---
+            const displaySorteo = document.getElementById('display-sorteo');
+            const valorDisplay = displaySorteo.querySelector('.valor');
+            const sortearBtn = document.getElementById('sortearBtn');
+            const reiniciarSorteoBtn = document.getElementById('reiniciarSorteoBtn');
+            const numerosSorteadosUl = document.getElementById('numeros-sorteados');
+            
+            let numerosDisponibles = [];
+            let animacionIntervalo;
+
+            function inicializarSorteo() {
+                numerosDisponibles = [];
+                for (let i = 100; i <= 200; i++) {
+                    numerosDisponibles.push(i);
+                }
+                numerosDisponibles.sort(() => Math.random() - 0.5);
+                numerosSorteadosUl.innerHTML = '';
+                valorDisplay.textContent = '-';
+                sortearBtn.disabled = false;
+            }
+
+            function obtenerLetraParaNumero(numero) {
+                if (numero <= 120) return 'B';
+                if (numero <= 140) return 'I';
+                if (numero <= 160) return 'N';
+                if (numero <= 180) return 'G';
+                return 'O';
+            }
+            
+            sortearBtn.addEventListener('click', () => {
+                if (numerosDisponibles.length === 0) {
+                    valorDisplay.textContent = 'FIN';
+                    sortearBtn.disabled = true;
+                    return;
+                }
+                sortearBtn.disabled = true;
+
+                animacionIntervalo = setInterval(() => {
+                    const numAleatorio = Math.floor(Math.random() * 101) + 100;
+                    const letraAleatoria = obtenerLetraParaNumero(numAleatorio);
+                    valorDisplay.textContent = `${letraAleatoria}-${numAleatorio}`;
+                }, 80);
+
+                setTimeout(() => {
+                    clearInterval(animacionIntervalo);
+                    
+                    const numeroSorteado = numerosDisponibles.pop();
+                    const letraSorteada = obtenerLetraParaNumero(numeroSorteado);
+
+                    valorDisplay.textContent = `${letraSorteada}-${numeroSorteado}`;
+                    
+                    const li = document.createElement('li');
+                    li.textContent = `${letraSorteada}-${numeroSorteado}`;
+                    li.dataset.letra = letraSorteada;
+                    numerosSorteadosUl.appendChild(li);
+
+                    sortearBtn.disabled = false;
+                }, 1500); // Duración reducida a 1.5 segundos
+            });
+
+            reiniciarSorteoBtn.addEventListener('click', inicializarSorteo);
+            
+            // --- LÓGICA DEL GENERADOR DE CARTONES ---
+            const generarBtn = document.getElementById('generarBtn');
+            const pdfBtn = document.getElementById('pdfBtn');
+            const cantidadInput = document.getElementById('cantidad');
+            const contenedorCartones = document.getElementById('contenedor-cartones');
+            
+            function generarNumerosUnicos(min, max, cantidad) {
+                const numeros = new Set();
+                while (numeros.size < cantidad) {
+                    numeros.add(Math.floor(Math.random() * (max - min + 1)) + min);
+                }
+                return Array.from(numeros);
+            }
+
+            function generarDatosCarton() {
+                const columnas = {};
+                Object.keys(rangos).forEach(letra => {
+                    columnas[letra] = generarNumerosUnicos(rangos[letra].min, rangos[letra].max, rangos[letra].cantidad);
+                });
+                return columnas;
+            }
+            
+            generarBtn.addEventListener('click', () => {
+                contenedorCartones.innerHTML = '<p>Creando los cartones...</p>';
+                setTimeout(() => {
+                    const cantidad = parseInt(cantidadInput.value, 10);
+                    const cartonesUnicos = new Set();
+                    const datosDeCartones = [];
+                    let intentos = 0;
+                    const maxIntentos = cantidad * 50;
+                    
+                    while (datosDeCartones.length < cantidad && intentos < maxIntentos) {
+                        const nuevoCarton = generarDatosCarton();
+                        const identificador = JSON.stringify(Object.values(nuevoCarton).map(col => col.sort((a,b)=>a-b)).flat());
+                        if (!cartonesUnicos.has(identificador)) {
+                            cartonesUnicos.add(identificador);
+                            datosDeCartones.push(nuevoCarton);
+                        }
+                        intentos++;
+                    }
+                    
+                    if (datosDeCartones.length < cantidad) {
+                        alert(`¡Uy! Solo se pudieron generar ${datosDeCartones.length} cartones únicos. Intenta con una cantidad menor.`);
+                    }
+
+                    mostrarCartonesEnHTML(datosDeCartones);
+                    pdfBtn.style.display = datosDeCartones.length > 0 ? 'inline-block' : 'none';
+                }, 50);
+            });
+
+            function mostrarCartonesEnHTML(datosDeCartones) {
+                contenedorCartones.innerHTML = '';
+                datosDeCartones.forEach((datos, index) => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'bingo-card';
+                    cardDiv.id = `carton-${index}`;
+
+                    let tablaHTML = `
+                        <h3 style="text-align:center; margin: 5px 0; color:#555;">Cartón #${index + 1}</h3>
+                        <table>
+                            <thead><tr><th>B</th><th>I</th><th>N</th><th>G</th><th>O</th></tr></thead>
+                            <tbody>`;
+                    
+                    for (let i = 0; i < 5; i++) {
+                        tablaHTML += '<tr>';
+                        Object.keys(rangos).forEach(letra => {
+                            tablaHTML += `<td>${datos[letra][i]}</td>`;
+                        });
+                        tablaHTML += '</tr>';
+                    }
+                    
+                    tablaHTML += '</tbody></table>';
+                    cardDiv.innerHTML = tablaHTML;
+                    contenedorCartones.appendChild(cardDiv);
+                });
+            }
+
+            pdfBtn.addEventListener('click', async () => {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const cartonesEnPagina = document.querySelectorAll('.bingo-card');
+                const pdfAnchoPagina = 210;
+                const margen = 10;
+                const anchoCarton = (pdfAnchoPagina - (margen * 3)) / 2;
+                
+                pdfBtn.textContent = 'Creando PDF...';
+                pdfBtn.disabled = true;
+
+                let x = margen; let y = margen; let altoMaximoFila = 0;
+
+                for (let i = 0; i < cartonesEnPagina.length; i++) {
+                    const carton = cartonesEnPagina[i];
+                    const canvas = await html2canvas(carton, { scale: 3 });
+                    const imgData = canvas.toDataURL('image/png');
+                    
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const altoCarton = (imgProps.height * anchoCarton) / imgProps.width;
+
+                    if (y + altoCarton > 297 - margen) { // 297 es el alto de A4
+                        pdf.addPage();
+                        x = margen; y = margen; altoMaximoFila = 0;
+                    }
+                    
+                    pdf.addImage(imgData, 'PNG', x, y, anchoCarton, altoCarton);
+
+                    if ((i + 1) % 2 !== 0 && (i + 1) < cartonesEnPagina.length) {
+                        x += anchoCarton + margen;
+                        altoMaximoFila = Math.max(altoMaximoFila, altoCarton);
+                    } else {
+                        x = margen;
+                        y += altoMaximoFila + margen;
+                        altoMaximoFila = 0;
+                    }
+                }
+
+                pdf.save(`bingo-educativo-${cartonesEnPagina.length}-cartones.pdf`);
+                pdfBtn.textContent = 'Descargar';
+                pdfBtn.disabled = false;
+            });
+
+            inicializarSorteo();
+        });
+    </script>
+
+</body>
+</html>
+
